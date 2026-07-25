@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tera Ujala</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#07060A">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tera Ujala">
+<style>
+  :root{
+    --bg-deep:#07060A; --bg-plum:#1B0F22; --bg-mid:#100A16;
+    --gold:#E9C468; --gold-dim:#C9A34E; --accent:#FF3B63;
+    --accent-glow:rgba(255,59,99,0.55); --gold-glow:rgba(233,196,104,0.45);
+    --text-main:#F6F1E7; --text-dim:#9C97A8;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; background:var(--bg-deep); color:var(--text-main);
+    font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow:hidden; }
+  body{ display:flex; justify-content:center; align-items:center; }
+  #app{ width:100%; max-width:400px; height:100vh; max-height:900px; position:relative; overflow:hidden; background:var(--bg-deep); }
+  .serif{ font-family: Georgia, 'Times New Roman', serif; }
+  .base-bg{ position:absolute; inset:0;
+    background: radial-gradient(circle at 20% 15%, rgba(233,196,104,0.09), transparent 50%),
+                radial-gradient(circle at 85% 85%, rgba(255,59,99,0.10), transparent 55%),
+                linear-gradient(165deg, var(--bg-plum) 0%, var(--bg-mid) 45%, var(--bg-deep) 100%); }
+
+  #loading-screen{ position:absolute; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .load-ring{ width:74px; height:74px; border-radius:50%; border:2px solid rgba(233,196,104,0.18); border-top-color:var(--gold);
+    animation: spin 1.1s linear infinite; display:flex; align-items:center; justify-content:center; }
+  .heart-icon{ color:var(--accent); font-size:22px; animation: heartbeat 1.4s ease-in-out infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes heartbeat{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.18); } }
+  #loading-screen p{ margin-top:26px; font-size:12.5px; letter-spacing:3px; color:var(--text-dim); text-transform:uppercase; }
+
+  #gate-screen{ position:absolute; inset:0; z-index:40; display:none; flex-direction:column; align-items:center; justify-content:center; padding:36px 30px; text-align:center; }
+  .gate-card{ width:100%; max-width:300px; background:rgba(255,255,255,0.05); border:1px solid rgba(233,196,104,0.22);
+    border-radius:26px; padding:34px 24px; box-shadow:0 20px 50px rgba(0,0,0,0.4); }
+  .gate-card.shake{ animation: shakeCard .45s ease; }
+  @keyframes shakeCard{ 0%,100%{ transform:translateX(0); } 20%{ transform:translateX(-8px); } 40%{ transform:translateX(7px); }
+    60%{ transform:translateX(-5px); } 80%{ transform:translateX(4px); } }
+  .gate-eyebrow{ font-size:10.5px; letter-spacing:3px; color:var(--gold-dim); text-transform:uppercase; margin-bottom:10px; }
+  .gate-question{ font-size:20px; line-height:1.4; margin-bottom:22px; }
+  #gate-answer{ width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(233,196,104,0.25); border-radius:20px;
+    padding:14px 18px; color:var(--text-main); font-size:15px; text-align:center; outline:none; text-transform:uppercase; }
+  #gate-answer:focus{ border-color:var(--gold); }
+  #gate-submit{ margin-top:16px; width:100%; padding:14px; border:none; border-radius:20px;
+    background:linear-gradient(135deg, var(--gold), var(--gold-dim)); color:#1A1206; font-size:14px; font-weight:700;
+    letter-spacing:1px; cursor:pointer; }
+  #gate-submit:active{ transform:scale(0.96); }
+  #gate-hint{ margin-top:14px; font-size:12.5px; color:var(--text-dim); min-height:16px; }
+  .hairline{ width:100%; height:1px; margin:16px 0; background:linear-gradient(90deg, transparent, rgba(233,196,104,0.55) 50%, transparent); }
+
+  #curtain-left, #curtain-right{ position:absolute; top:0; bottom:0; width:50%;
+    background:linear-gradient(165deg, var(--bg-plum) 0%, var(--bg-mid) 45%, var(--bg-deep) 100%); z-index:35; display:none;
+    transition: transform 1.1s ease; }
+  #curtain-left{ left:0; } #curtain-right{ right:0; }
+  #curtain-left.part{ transform:translateX(-100%); } #curtain-right.part{ transform:translateX(100%); }
+
+  #player-screen{ display:none; position:absolute; inset:0; flex-direction:column; align-items:center; }
+  .photo-stage{ position:absolute; inset:0; overflow:hidden; background:#000; }
+  .photo-bg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter: blur(38px) brightness(0.55) saturate(1.2); transform:scale(1.25);
+    transition: opacity .45s ease, transform .5s ease; }
+  .photo-fg{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+    transition: opacity .45s ease, transform .5s ease; }
+  .stage-scrim{ position:absolute; inset:0; background:linear-gradient(to bottom, rgba(6,5,9,0.75) 0%, rgba(6,5,9,0.05) 30%, rgba(6,5,9,0.05) 60%, rgba(6,5,9,0.88) 100%); }
+  .player-content{ position:relative; z-index:2; width:100%; height:100%; display:flex; flex-direction:column; padding:30px 22px 22px; }
+  .brand-row{ display:flex; align-items:center; justify-content:space-between; width:100%; }
+  .brand-row .title{ font-size:12px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; }
+  #story-btn{ width:auto; height:36px; padding:0 14px; border-radius:18px; background:rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.18); color:var(--gold); font-size:11px; letter-spacing:1px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .track-index{ margin-top:auto; font-size:11.5px; letter-spacing:2px; color:var(--gold); font-weight:600; transition: opacity .3s ease; }
+  .quote-box{ margin-top:8px; min-height:60px; padding:0 4px; }
+  .quote-box p{ font-size:15.5px; line-height:1.5; font-style:italic; transition: opacity .35s ease, transform .4s ease; }
+  .progress-wrap{ margin-top:14px; }
+  #seek{ width:100%; accent-color:var(--gold); cursor:pointer; }
+  .time-row{ display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .controls-row{ display:flex; align-items:center; justify-content:center; gap:26px; margin-top:18px; }
+  .ctrl-btn{ background:none; border:none; color:var(--text-main); font-size:22px; cursor:pointer; opacity:0.9; }
+  .ctrl-btn:active{ transform:scale(0.9); }
+  #play-btn{ width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg, var(--accent), #B4123A);
+    color:#fff; font-size:23px; display:flex; align-items:center; justify-content:center; border:none; cursor:pointer; }
+  #play-btn:active{ transform:scale(0.92); }
+  .footer-note{ margin-top:14px; font-size:10.5px; letter-spacing:1px; color:var(--text-dim); text-align:center; opacity:0.7; }
+
+  /* ---- Film-roll transition states ---- */
+  .roll-out-next .photo-bg, .roll-out-next .photo-fg{ opacity:0; transform: scale(1.3) rotate(6deg); }
+  .roll-out-prev .photo-bg, .roll-out-prev .photo-fg{ opacity:0; transform: scale(1.3) rotate(-6deg); }
+  .roll-out-next .photo-bg{ transform: scale(1.35) rotate(6deg); }
+  .roll-out-prev .photo-bg{ transform: scale(1.35) rotate(-6deg); }
+  .quote-fade-out{ opacity:0 !important; transform: translateY(8px); }
+  .track-fade-out{ opacity:0 !important; }
+
+  /* ---- Double-tap love burst ---- */
+  #dtap-layer{ position:absolute; inset:0; z-index:4; pointer-events:none; overflow:hidden; }
+  .love-text-pop{ position:absolute; left:50%; top:44%; transform:translate(-50%,-50%) scale(0.4); font-size:30px; font-weight:700;
+    font-family: Georgia, 'Times New Roman', serif; color:var(--accent); text-shadow:0 0 22px rgba(255,59,99,0.65);
+    opacity:0; animation: lovePop 1.1s ease forwards; white-space:nowrap; }
+  @keyframes lovePop{
+    0%{ opacity:0; transform:translate(-50%,-50%) scale(0.4); }
+    25%{ opacity:1; transform:translate(-50%,-50%) scale(1.12); }
+    40%{ transform:translate(-50%,-50%) scale(1); }
+    80%{ opacity:1; }
+    100%{ opacity:0; transform:translate(-50%,-62%) scale(1); }
+  }
+  .dtap-heart{ position:absolute; bottom:20%; font-size:18px; color:var(--accent); opacity:0.95;
+    animation: dtapFloat 1.6s ease-out forwards; }
+  @keyframes dtapFloat{
+    0%{ transform:translateY(0) scale(0.5) rotate(0deg); opacity:0; }
+    12%{ opacity:1; }
+    100%{ transform:translateY(-360px) scale(1.15) rotate(18deg); opacity:0; }
+  }
+
+  /* ---- Welcome typing overlay ---- */
+  #welcome-overlay{ position:absolute; inset:0; z-index:20; display:none; align-items:center; justify-content:center;
+    background:rgba(6,5,9,0.94); padding:30px; text-align:center; transition: opacity .6s ease; }
+  #welcome-overlay p{ font-size:19px; font-style:italic; color:var(--gold); font-family: Georgia, 'Times New Roman', serif; line-height:1.6; }
+  #welcome-overlay .cursor{ display:inline-block; width:2px; background:var(--gold); margin-left:2px; animation: blinkCursor 0.8s steps(1) infinite; }
+  @keyframes blinkCursor{ 50%{ opacity:0; } }
+
+  #quiz-screen{ position:absolute; inset:0; z-index:40; display:none; flex-direction:column; align-items:center; justify-content:center; padding:36px 30px; text-align:center; }
+  .quiz-progress{ display:flex; gap:4px; margin-bottom:24px; flex-wrap:wrap; justify-content:center; max-width:260px; }
+  .quiz-progress .dot{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.15); transition: background .3s ease, transform .3s ease; }
+  .quiz-progress .dot.done{ background:var(--gold); }
+  .quiz-progress .dot.active{ background:var(--accent); transform:scale(1.3); }
+  .quiz-card{ width:100%; max-width:300px; background:rgba(255,255,255,0.05); border:1px solid rgba(233,196,104,0.22);
+    border-radius:26px; padding:30px 24px; box-shadow:0 20px 50px rgba(0,0,0,0.4); }
+  .quiz-card.shake{ animation: shakeCard .45s ease; }
+  .quiz-eyebrow{ font-size:10.5px; letter-spacing:3px; color:var(--gold-dim); text-transform:uppercase; margin-bottom:10px; }
+  .quiz-question{ font-size:19px; line-height:1.4; margin-bottom:22px; }
+  #quiz-answer{ width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(233,196,104,0.25); border-radius:20px;
+    padding:14px 18px; color:var(--text-main); font-size:15px; text-align:center; outline:none; }
+  #quiz-submit{ margin-top:16px; width:100%; padding:14px; border:none; border-radius:20px;
+    background:linear-gradient(135deg, var(--gold), var(--gold-dim)); color:#1A1206; font-size:14px; font-weight:700; letter-spacing:1px; cursor:pointer; }
+  #quiz-hint{ margin-top:14px; font-size:12.5px; color:var(--text-dim); min-height:16px; }
+  #quiz-skip{ margin-top:16px; font-size:11px; color:var(--text-dim); text-decoration:underline; cursor:pointer; }
+  #memory-flash{ position:absolute; inset:0; z-index:45; display:none; align-items:center; justify-content:center; padding:40px; background:rgba(6,5,9,0.92); }
+  #memory-flash.show{ display:flex; }
+  #memory-flash p{ font-size:18px; line-height:1.6; font-style:italic; text-align:center; color:var(--gold); }
+
+  /* FINALE (after last question) */
+  #finale-screen{ position:absolute; inset:0; z-index:46; display:none; align-items:center; justify-content:center;
+    flex-direction:column; padding:40px 30px; background:radial-gradient(circle at 50% 40%, rgba(255,59,99,0.18), rgba(6,5,9,0.96) 70%); overflow:hidden; }
+  #finale-screen.show{ display:flex; }
+  .finale-heart{ position:absolute; bottom:-10%; font-size:20px; color:var(--accent); opacity:0.85;
+    animation: floatUp 4.5s ease-in forwards; }
+  @keyframes floatUp{
+    0%{ transform:translateY(0) scale(0.6) rotate(0deg); opacity:0; }
+    10%{ opacity:0.9; }
+    100%{ transform:translateY(-620px) scale(1.3) rotate(25deg); opacity:0; }
+  }
+  .finale-lines{ position:relative; z-index:2; max-width:290px; text-align:center; }
+  .finale-lines p{ font-size:16px; line-height:1.8; font-style:italic; color:var(--gold); margin-bottom:14px; opacity:0; transform:translateY(10px);
+    animation: finaleIn .9s ease forwards; }
+  @keyframes finaleIn{ to{ opacity:1; transform:translateY(0); } }
+
+  #seal-screen{ position:absolute; inset:0; z-index:40; display:none; align-items:center; justify-content:center; flex-direction:column; }
+  .seal{ width:100px; height:100px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #E9C468, #9C7A2E 70%);
+    display:flex; align-items:center; justify-content:center; font-size:34px; color:#3A2A08; box-shadow:0 0 40px var(--gold-glow);
+    cursor:pointer; animation: sealPulse 1.8s ease-in-out infinite; }
+  @keyframes sealPulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.05); } }
+  #seal-screen p{ margin-top:22px; font-size:12px; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; }
+
+  #letter-screen{ position:absolute; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:50px 34px; flex-direction:column; }
+  #letter-lines{ max-width:300px; }
+  #letter-lines p{ font-size:15.5px; line-height:1.75; font-style:italic; text-align:center; color:var(--text-main); margin-bottom:16px; }
+  #letter-restart{ margin-top:20px; padding:12px 24px; border:none; border-radius:20px;
+    background:linear-gradient(135deg, var(--gold), var(--gold-dim)); color:#1A1206; font-size:13px; font-weight:700; letter-spacing:1px; cursor:pointer; }
+
+  #js-error-box{ position:fixed; bottom:0; left:0; right:0; background:#300; color:#ff8080; font-size:11px; padding:8px 12px;
+    z-index:999; max-height:40%; overflow-y:auto; font-family:monospace; display:none; }
+  #restart-btn{ position:fixed; top:10px; right:10px; z-index:998; width:34px; height:34px; border-radius:50%;
+    background:rgba(0,0,0,0.5); border:1px solid rgba(233,196,104,0.4); color:var(--gold); font-size:15px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="base-bg"></div>
+
+  <div id="loading-screen">
+    <div class="load-ring"><span class="heart-icon">&#9829;</span></div>
+    <p>Loading...</p>
+  </div>
+
+  <div id="gate-screen">
+    <div class="gate-card" id="gate-card">
+      <div class="gate-eyebrow">Enter to continue</div>
+      <div class="gate-question serif">Who made this world for you?</div>
+      <div class="hairline"></div>
+      <input type="text" id="gate-answer" placeholder="Type your answer..." autocomplete="off">
+      <button id="gate-submit">Unlock</button>
+      <div id="gate-hint"></div>
+    </div>
+  </div>
+
+  <div id="curtain-left"></div>
+  <div id="curtain-right"></div>
+
+  <div id="player-screen">
+    <div class="photo-stage" id="photo-stage">
+      <img id="photo-bg" class="photo-bg" src="images/pic1.jpg" alt="">
+      <img id="photo-fg" class="photo-fg" src="images/pic1.jpg" alt="memory">
+      <div class="stage-scrim"></div>
+      <div id="dtap-layer"></div>
+    </div>
+
+    <div id="welcome-overlay"><p id="welcome-text">&nbsp;</p></div>
+
+    <div class="player-content">
+      <div class="brand-row">
+        <span class="title serif">Tera Ujala</span>
+        <button id="story-btn">Our Story &#9998;</button>
+      </div>
+      <div class="track-index" id="track-index">TRACK 01 / 50</div>
+      <div class="quote-box"><p id="quote-text">"Loading..."</p></div>
+      <div class="hairline"></div>
+      <div class="progress-wrap">
+        <input type="range" id="seek" value="0" min="0" max="100" step="0.1">
+        <div class="time-row"><span id="current-time">0:00</span><span id="duration-time">0:00</span></div>
+      </div>
+      <div class="hairline"></div>
+      <div class="controls-row">
+        <button class="ctrl-btn" id="prev-btn">&#9198;</button>
+        <button id="play-btn">&#9658;</button>
+        <button class="ctrl-btn" id="next-btn">&#9197;</button>
+      </div>
+      <div class="footer-note">MADE WITH LOVE &mdash; double-tap the photo &#9829;</div>
+    </div>
+  </div>
+
+  <div id="quiz-screen">
+    <div class="quiz-progress" id="quiz-progress"></div>
+    <div class="quiz-card" id="quiz-card">
+      <div class="quiz-eyebrow">Memory <span id="quiz-num">1</span> of <span id="quiz-total">6</span></div>
+      <div class="quiz-question serif" id="quiz-question">Loading...</div>
+      <div class="hairline"></div>
+      <input type="text" id="quiz-answer" placeholder="Type your answer..." autocomplete="off">
+      <button id="quiz-submit">Continue</button>
+      <div id="quiz-hint"></div>
+      <div id="quiz-skip">skip this question</div>
+    </div>
+  </div>
+  <div id="memory-flash"><p id="memory-flash-text"></p></div>
+
+  <div id="finale-screen">
+    <div class="finale-lines" id="finale-lines"></div>
+  </div>
+
+  <div id="seal-screen">
+    <div class="seal" id="seal">&#10022;</div>
+    <p>Tap to break the seal</p>
+  </div>
+
+  <div id="letter-screen">
+    <div id="letter-lines"></div>
+    <button id="letter-restart">Start Again</button>
+  </div>
+
+  <div id="js-error-box"></div>
+  <button id="restart-btn" title="Restart from beginning">&#8635;</button>
+</div>
+
+<script>
+function logErr(msg){
+  var box = document.getElementById('js-error-box');
+  if(box){ box.style.display = "block"; var l=document.createElement('div'); l.textContent = msg; box.appendChild(l); }
+}
+window.onerror = function(message, source, lineno){ logErr("JS ERROR (line " + lineno + "): " + message); return false; };
+
+try {
+
+/* ================= DATA ================= */
+
+/* Gate password (English question, exact answer case-insensitive) */
+var GATE_ANSWER = "HARSH";
+
+/* 6 memory questions for "Our Story" */
+var QUESTIONS = [
+  { q: "Where did we first cross paths?", accept: ["college","collage","clg","ccsu","department of education","dept of education"],
+    memory: "It started in the halls of college, though neither of us knew it yet." },
+  { q: "What was I training for, the first time I really noticed you?", accept: ["up police","police","up police physical","physical","police physical"],
+    memory: "You were preparing for your UP Police physical — I couldn't stop watching." },
+  { q: "Besides college, where did our paths cross again?", accept: ["metro","mini metro","train","e rikshaw","e-rickshaw","erikshaw","rickshaw"],
+    memory: "Then again, quietly, in a mini metro — like fate was rehearsing." },
+  { q: "What did I nervously ask you, that started it all?", accept: ["ophthalmologist","opthomologist","eye doctor","doctor"],
+    memory: "\"Do you know any ophthalmologist?\" — the question that started everything." },
+  { q: "When did you first feel it was love?", accept: ["after surgery","after operation","surgery","operation","touch","hospital"],
+    memory: "After the surgery, when I touched your hand — that's when you knew." },
+  { q: "And finally — what did all of this lead to?", accept: ["confession","proposal","express","expression","love","commitment"],
+    memory: "And finally, the confession — the moment two hearts stopped pretending." }
+];
+
+var FINALE_LINES = [
+  "Every memory, every question, every answer — they all lead back to you.",
+  "You are the calm after every storm, and the light I keep chasing.",
+  "Ujala, this whole world exists because you exist in mine."
+];
+
+var LETTER_LINES = [
+  "Ujala,",
+  "From a college hallway to a mini metro ride, from a nervous question about an ophthalmologist to a hand held after surgery —",
+  "every step was quietly leading me to you.",
+  "You are a little shaqi, endlessly loving, and somehow exactly right for me.",
+  "This is a small world I built, just for you, out of every memory that mattered.",
+  "Happy reading, my love. It will always be you."
+];
+
+/* 50 quotes cycled across tracks */
+var QUOTES = [
+  "In a room full of art, I would still stare at you, Ujala.",
+  "Every single love song I listen to reminds me of your smile.",
+  "You are my favorite notification, my favorite person, and my favorite thought.",
+  "Some people search their whole life for what I found in you.",
+  "Your laugh is my favorite sound in this entire world.",
+  "I didn't believe in forever until I met you.",
+  "Home isn't a place, it's wherever you are.",
+  "You make ordinary days feel like something worth remembering.",
+  "I fall for you a little more every single day.",
+  "With you, even silence feels like a conversation.",
+  "You are the answer to a question I didn't know I was asking.",
+  "My favorite place in the world is right next to you.",
+  "Loving you is the easiest thing I've ever done.",
+  "You turned my whole life into a love story.",
+  "Every memory with you feels like a photograph worth keeping.",
+  "I don't need a reason to love you — I just do.",
+  "You are proof that good things do happen.",
+  "The best part of my day is talking to you.",
+  "You are my peace in a very loud world.",
+  "I still get nervous every time I see your name pop up.",
+  "You are the softest chapter of my whole story.",
+  "Even on my worst days, thinking of you fixes something in me.",
+  "I never knew I needed you until I had you.",
+  "You are the reason I believe in timing.",
+  "My heart chose you, and it never once looked back.",
+  "You are the calm I search for after every storm.",
+  "There is no version of my future that doesn't have you in it.",
+  "You make loving someone feel effortless.",
+  "I would choose you, again and again, in every lifetime.",
+  "You are the safest place I have ever known.",
+  "Every song makes more sense when I think of you.",
+  "You are quietly the best thing that has ever happened to me.",
+  "I love you in ways I still don't have words for.",
+  "You are my favorite hello and my hardest goodbye.",
+  "With you, forever doesn't feel long enough.",
+  "You are the reason my heart learned how to be brave.",
+  "I could listen to you talk about nothing for hours.",
+  "You are my person, in every sense of the word.",
+  "Loving you feels like coming home every single time.",
+  "You are the light I didn't know I was looking for.",
+  "Every little thing about you feels like my favorite thing.",
+  "You are worth every mile, every wait, every moment.",
+  "I never want to stop learning new things about you.",
+  "You are the reason I smile at my phone like an idiot.",
+  "With you, I found a love that feels like it was always mine.",
+  "You are my calm, my chaos, my everything in between.",
+  "I love the way you make me feel like enough.",
+  "You are the sweetest surprise life ever gave me.",
+  "Every love story is beautiful, but ours is my favorite.",
+  "Ujala, you are, and will always be, my light."
+];
+
+/* Motivational / soft lines shown on a wrong answer (both gate + quiz) */
+var WRONG_ANSWER_LINES = [
+  "Not quite — take a breath, think back, try again.",
+  "So close. Let your memory wander a little more.",
+  "That's alright — love isn't about getting it perfect the first time.",
+  "Hmm, not that one. Think about that day again.",
+  "No rush at all — the memory is still there, waiting.",
+  "Almost! Give it one more gentle try.",
+  "That's okay — some memories need a second look.",
+  "Not this time, but you're closer than you think."
+];
+
+var TOTAL_TRACKS = 50;
+var playlist = [];
+for(var i=1;i<=TOTAL_TRACKS;i++){
+  playlist.push({
+    song: "songs/song" + i + ".mp3",
+    img: "images/pic" + i + ".jpg",
+    quote: QUOTES[(i-1) % QUOTES.length]
+  });
+}
+
+/* ================= STATE ================= */
+var activeIndex = 0;      // 0-based index into playlist
+var isPlaying = false;
+var quizIndex = 0;
+var audio = new Audio();
+
+/* ================= HELPERS ================= */
+function $(id){ return document.getElementById(id); }
+function show(el, mode){ el.style.display = mode || "flex"; }
+function hide(el){ el.style.display = "none"; }
+function randomFrom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function normalize(str){ return (str||"").toLowerCase().trim().replace(/[^a-z0-9 ]/g,""); }
+function matchesAny(input, list){
+  var n = normalize(input);
+  if(!n) return false;
+  for(var i=0;i<list.length;i++){ if(n.indexOf(normalize(list[i])) !== -1) return true; }
+  return false;
+}
+function formatTime(sec){
+  if(!isFinite(sec) || sec < 0) sec = 0;
+  var m = Math.floor(sec/60), s = Math.floor(sec%60);
+  return m + ":" + (s < 10 ? "0"+s : s);
+}
+function shakeEl(el){
+  el.classList.remove("shake");
+  void el.offsetWidth; /* restart animation */
+  el.classList.add("shake");
+}
+
+/* ================= LOADING -> GATE ================= */
+function revealGate(){
+  hide($("loading-screen"));
+  show($("gate-screen"));
+  $("gate-answer").focus();
+}
+/* Don't depend on window 'load' (some online editors / sandboxes never fire it
+   cleanly, especially with missing image/audio files) — just use a timer that
+   starts as soon as this script runs, since it's already at the end of body. */
+setTimeout(revealGate, 1200);
+
+/* ================= GATE ================= */
+function checkGate(){
+  var val = $("gate-answer").value;
+  if(normalize(val) === normalize(GATE_ANSWER)){
+    hide($("gate-screen"));
+    runCurtainOpen(function(){
+      loadTrack(0, false);
+      show($("player-screen"));
+      playWelcome();
+    });
+  } else {
+    shakeEl($("gate-card"));
+    $("gate-hint").textContent = randomFrom(WRONG_ANSWER_LINES);
+    $("gate-answer").value = "";
+  }
+}
+$("gate-submit").addEventListener("click", checkGate);
+$("gate-answer").addEventListener("keydown", function(e){ if(e.key === "Enter") checkGate(); });
+
+function runCurtainOpen(callback){
+  show($("curtain-left"), "block");
+  show($("curtain-right"), "block");
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      $("curtain-left").classList.add("part");
+      $("curtain-right").classList.add("part");
+    });
+  });
+  setTimeout(function(){
+    hide($("curtain-left"));
+    hide($("curtain-right"));
+    $("curtain-left").classList.remove("part");
+    $("curtain-right").classList.remove("part");
+    if(callback) callback();
+  }, 1150);
+}
+
+/* ================= WELCOME TYPING ================= */
+function playWelcome(){
+  var visited = false;
+  try { visited = localStorage.getItem("ujala_visited") === "1"; } catch(e){ visited = false; }
+  var msg = visited ? "Welcome back, Ujala" : "Welcome to your world, Ujala…";
+  try { localStorage.setItem("ujala_visited", "1"); } catch(e){}
+
+  var overlay = $("welcome-overlay");
+  var textEl = $("welcome-text");
+  textEl.innerHTML = "";
+  show(overlay);
+
+  var i = 0;
+  var typed = document.createElement("span");
+  var cursor = document.createElement("span");
+  cursor.className = "cursor";
+  cursor.innerHTML = "&nbsp;";
+  textEl.appendChild(typed);
+  textEl.appendChild(cursor);
+
+  var typeInterval = setInterval(function(){
+    if(i < msg.length){
+      typed.textContent += msg.charAt(i);
+      i++;
+    } else {
+      clearInterval(typeInterval);
+      setTimeout(function(){
+        overlay.style.opacity = "0";
+        setTimeout(function(){
+          hide(overlay);
+          overlay.style.opacity = "1";
+        }, 600);
+      }, 1100);
+    }
+  }, 55);
+}
+
+/* ================= PLAYER ================= */
+function loadTrack(index, autoplay){
+  if(index < 0) index = playlist.length - 1;
+  if(index >= playlist.length) index = 0;
+  activeIndex = index;
+  var track = playlist[activeIndex];
+
+  $("photo-bg").src = track.img;
+  $("photo-fg").src = track.img;
+  $("quote-text").textContent = '"' + track.quote + '"';
+  $("track-index").textContent = "TRACK " + String(activeIndex+1).padStart(2,"0") + " / " + playlist.length;
+
+  audio.src = track.song;
+  audio.currentTime = 0;
+  $("seek").value = 0;
+  $("current-time").textContent = "0:00";
+  $("duration-time").textContent = "0:00";
+
+  if(autoplay){ playAudio(); } else { isPlaying = false; $("play-btn").innerHTML = "&#9658;"; }
+}
+
+/* Film-roll transition wrapper for next/prev */
+function changeTrack(direction){
+  var stage = $("photo-stage");
+  var quote = $("quote-text");
+  var trackIdx = $("track-index");
+  var outClass = direction > 0 ? "roll-out-next" : "roll-out-prev";
+
+  stage.classList.add(outClass);
+  quote.classList.add("quote-fade-out");
+  trackIdx.classList.add("track-fade-out");
+
+  setTimeout(function(){
+    loadTrack(activeIndex + direction, isPlaying);
+    requestAnimationFrame(function(){
+      stage.classList.remove(outClass);
+      quote.classList.remove("quote-fade-out");
+      trackIdx.classList.remove("track-fade-out");
+    });
+  }, 380);
+}
+
+function playAudio(){
+  audio.play().catch(function(){ /* autoplay may be blocked; ignore */ });
+  isPlaying = true;
+  $("play-btn").innerHTML = "&#10074;&#10074;";
+}
+function pauseAudio(){
+  audio.pause();
+  isPlaying = false;
+  $("play-btn").innerHTML = "&#9658;";
+}
+
+$("play-btn").addEventListener("click", function(){
+  if(isPlaying) pauseAudio(); else playAudio();
+});
+$("next-btn").addEventListener("click", function(){ changeTrack(1); });
+$("prev-btn").addEventListener("click", function(){ changeTrack(-1); });
+
+audio.addEventListener("timeupdate", function(){
+  if(audio.duration){
+    $("seek").value = (audio.currentTime / audio.duration) * 100;
+    $("current-time").textContent = formatTime(audio.currentTime);
+    $("duration-time").textContent = formatTime(audio.duration);
+  }
+});
+audio.addEventListener("ended", function(){ changeTrack(1); });
+$("seek").addEventListener("input", function(){
+  if(audio.duration){ audio.currentTime = (this.value/100) * audio.duration; }
+});
+
+/* ================= DOUBLE-TAP "I LOVE YOU" + HEARTS ================= */
+var lastTapTime = 0;
+function triggerLoveBurst(x, y){
+  var layer = $("dtap-layer");
+
+  var pop = document.createElement("div");
+  pop.className = "love-text-pop";
+  pop.textContent = "I love you";
+  if(typeof x === "number"){ pop.style.left = x + "px"; }
+  layer.appendChild(pop);
+  setTimeout(function(){ pop.remove(); }, 1200);
+
+  var heartCount = 10;
+  for(var k=0;k<heartCount;k++){
+    (function(){
+      var h = document.createElement("span");
+      h.className = "dtap-heart";
+      h.innerHTML = "&#10084;";
+      var leftPct = 30 + Math.random()*40;
+      h.style.left = leftPct + "%";
+      h.style.animationDelay = (Math.random()*0.4) + "s";
+      h.style.fontSize = (14 + Math.random()*14) + "px";
+      layer.appendChild(h);
+      setTimeout(function(){ h.remove(); }, 2000);
+    })();
+  }
+}
+function handleStageTap(e){
+  var now = Date.now();
+  if(now - lastTapTime < 350){
+    var rect = $("photo-stage").getBoundingClientRect();
+    var clientX = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : e.clientX;
+    triggerLoveBurst(clientX ? (clientX - rect.left) : undefined);
+    lastTapTime = 0;
+  } else {
+    lastTapTime = now;
+  }
+}
+$("photo-stage").addEventListener("dblclick", function(e){ triggerLoveBurst(e.clientX - $("photo-stage").getBoundingClientRect().left); });
+$("photo-stage").addEventListener("touchend", handleStageTap);
+
+/* ================= OUR STORY (QUIZ) ================= */
+function buildQuizDots(){
+  var wrap = $("quiz-progress");
+  wrap.innerHTML = "";
+  for(var i=0;i<QUESTIONS.length;i++){
+    var d = document.createElement("div");
+    d.className = "dot";
+    wrap.appendChild(d);
+  }
+  refreshQuizDots();
+}
+function refreshQuizDots(){
+  var dots = $("quiz-progress").children;
+  for(var i=0;i<dots.length;i++){
+    dots[i].className = "dot" + (i < quizIndex ? " done" : (i === quizIndex ? " active" : ""));
+  }
+}
+function openQuiz(){
+  pauseAudio();
+  quizIndex = 0;
+  buildQuizDots();
+  renderQuizQuestion();
+  hide($("player-screen"));
+  show($("quiz-screen"));
+}
+function renderQuizQuestion(){
+  var q = QUESTIONS[quizIndex];
+  $("quiz-num").textContent = quizIndex + 1;
+  $("quiz-total").textContent = QUESTIONS.length;
+  $("quiz-question").textContent = q.q;
+  $("quiz-answer").value = "";
+  $("quiz-hint").textContent = "";
+  refreshQuizDots();
+  $("quiz-answer").focus();
+}
+function checkQuizAnswer(){
+  var q = QUESTIONS[quizIndex];
+  var val = $("quiz-answer").value;
+  if(matchesAny(val, q.accept)){
+    showMemoryFlash(q.memory, advanceQuiz);
+  } else {
+    shakeEl($("quiz-card"));
+    $("quiz-hint").textContent = randomFrom(WRONG_ANSWER_LINES);
+  }
+}
+function showMemoryFlash(text, cb){
+  $("memory-flash-text").textContent = text;
+  $("memory-flash").classList.add("show");
+  setTimeout(function(){
+    $("memory-flash").classList.remove("show");
+    cb();
+  }, 2200);
+}
+function advanceQuiz(){
+  quizIndex++;
+  if(quizIndex >= QUESTIONS.length){
+    runFinale();
+  } else {
+    renderQuizQuestion();
+  }
+}
+$("quiz-submit").addEventListener("click", checkQuizAnswer);
+$("quiz-answer").addEventListener("keydown", function(e){ if(e.key === "Enter") checkQuizAnswer(); });
+$("quiz-skip").addEventListener("click", function(){
+  var q = QUESTIONS[quizIndex];
+  showMemoryFlash(q.memory, advanceQuiz);
+});
+$("story-btn").addEventListener("click", openQuiz);
+
+/* ================= FINALE -> SEAL -> LETTER ================= */
+function runFinale(){
+  hide($("quiz-screen"));
+  var finale = $("finale-screen");
+  var linesWrap = $("finale-lines");
+  linesWrap.innerHTML = "";
+  show(finale);
+
+  FINALE_LINES.forEach(function(line, idx){
+    var p = document.createElement("p");
+    p.textContent = line;
+    p.style.animationDelay = (idx * 1.1) + "s";
+    linesWrap.appendChild(p);
+  });
+
+  var heartTimer = setInterval(function(){
+    var h = document.createElement("span");
+    h.className = "finale-heart";
+    h.innerHTML = "&#10084;";
+    h.style.left = (Math.random()*90) + "%";
+    h.style.animationDuration = (3.5 + Math.random()*2) + "s";
+    finale.appendChild(h);
+    setTimeout(function(){ h.remove(); }, 5500);
+  }, 260);
+
+  setTimeout(function(){
+    clearInterval(heartTimer);
+    finale.classList.remove("show");
+    hide(finale);
+    show($("seal-screen"));
+  }, FINALE_LINES.length * 1100 + 2600);
+}
+
+$("seal").addEventListener("click", function(){
+  hide($("seal-screen"));
+  var wrap = $("letter-lines");
+  wrap.innerHTML = "";
+  LETTER_LINES.forEach(function(line, idx){
+    var p = document.createElement("p");
+    p.textContent = line;
+    p.style.opacity = "0";
+    p.style.transform = "translateY(10px)";
+    p.style.transition = "opacity .8s ease, transform .8s ease";
+    p.style.transitionDelay = (idx * 0.6) + "s";
+    wrap.appendChild(p);
+    setTimeout(function(){ p.style.opacity = "1"; p.style.transform = "translateY(0)"; }, 50);
+  });
+  show($("letter-screen"));
+});
+
+/* ================= RESTART ================= */
+function restartExperience(){
+  pauseAudio();
+  hide($("player-screen"));
+  hide($("quiz-screen"));
+  hide($("finale-screen"));
+  $("finale-screen").classList.remove("show");
+  hide($("seal-screen"));
+  hide($("letter-screen"));
+  $("gate-answer").value = "";
+  $("gate-hint").textContent = "";
+  show($("gate-screen"));
+}
+$("restart-btn").addEventListener("click", restartExperience);
+$("letter-restart").addEventListener("click", restartExperience);
+
+} catch(err){
+  logErr("SETUP ERROR: " + err.message);
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function() {
+    navigator.serviceWorker.register("service-worker.js").catch(function(err) {
+      console.log("Service worker registration failed:", err);
+    });
+  });
+}
+</script>
+</body>
+</html>
